@@ -1,0 +1,19 @@
+# Example service block. Adjust `networks` so this container can reach your
+# existing Jackett instance, and point JACKETT_URL at it.
+services:
+  cztorznab-proxy:
+    build: .
+    container_name: cztorznab-proxy
+    restart: unless-stopped
+    environment:
+      JACKETT_URL: http://jackett:9117
+      LOG_LEVEL: INFO
+    ports:
+      - "9118:8000"
+    networks:
+      - media
+
+networks:
+  media:
+    external: true
+    name: media-stack_default
