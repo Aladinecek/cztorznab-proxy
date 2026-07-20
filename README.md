@@ -83,11 +83,18 @@ a `docker compose` media stack).
 3. Edit `docker-compose.yml` so the proxy joins the same Docker network as
    Jackett (see the `networks:` block) — it needs to reach Jackett by
    container name.
-4. Build and start:
+4. Pull the prebuilt image and start:
 
    ```bash
-   docker compose up -d --build
+   docker compose pull
+   docker compose up -d
    ```
+
+   Prebuilt images are published to `ghcr.io/aladinecek/cztorznab-proxy` for
+   `linux/amd64` and `linux/arm64` (Raspberry Pi included) on every push to
+   `main` (`:latest`) and every `vX.Y.Z` release tag. To build from source
+   instead, swap the `image:` line in `docker-compose.yml` for `build: .`
+   (both are shown, one commented out) and run `docker compose up -d --build`.
 
 5. In Prowlarr, change the indexer's Torznab URL from Jackett directly to the
    proxy, keeping the same path and API key:
@@ -102,6 +109,20 @@ a `docker compose` media stack).
 
 6. Run a test search in Prowlarr and confirm titles now show up in
    `SxxExx`/`CZ`/ASCII form.
+
+## Updating
+
+Pull the latest image and recreate the container:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+If you'd rather not do this by hand, point
+[Watchtower](https://containrrr.dev/watchtower/) at the `cztorznab-proxy`
+container (e.g. via its `com.centurylinklabs.watchtower.enable=true` label)
+and it'll pick up new `:latest` images automatically.
 
 ## Configuration
 

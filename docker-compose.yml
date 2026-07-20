@@ -2,7 +2,10 @@
 # existing Jackett instance, and point JACKETT_URL at it.
 services:
   cztorznab-proxy:
-    build: .
+    image: ghcr.io/aladinecek/cztorznab-proxy:latest
+    # Building locally instead of pulling: comment out `image:` above and
+    # uncomment the line below.
+    # build: .
     container_name: cztorznab-proxy
     restart: unless-stopped
     environment:
