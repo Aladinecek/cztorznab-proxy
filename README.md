@@ -68,35 +68,33 @@ season) pass through unfiltered, as before.
 
 ## Installation
 
-Requires an existing Jackett instance reachable from Docker (e.g. as part of
-a `docker compose` media stack).
+No cloning, no building — just a `docker-compose.yml` and one command, the
+same way you'd stand up Jellyfin. Requires an existing Jackett instance
+reachable from Docker (e.g. as part of your media stack's compose setup).
 
-1. Clone this repo next to (or as part of) your existing compose setup.
-2. Copy the example env file and point it at your Jackett instance:
+1. Make a folder for it and grab the compose file:
 
    ```bash
-   cp .env.example .env
-   # edit .env: set JACKETT_URL to your Jackett container, e.g.
-   # JACKETT_URL=http://jackett:9117
+   mkdir cztorznab-proxy && cd cztorznab-proxy
+   curl -O https://raw.githubusercontent.com/Aladinecek/cztorznab-proxy/main/docker-compose.yml
    ```
 
-3. Edit `docker-compose.yml` so the proxy joins the same Docker network as
-   Jackett (see the `networks:` block) — it needs to reach Jackett by
-   container name.
-4. Pull the prebuilt image and start:
+2. Open `docker-compose.yml` and edit the two marked lines: `JACKETT_URL`
+   (Jackett's address) and the `networks:` block (the Docker network your
+   Jackett container is on, so the proxy can reach it by container name —
+   check with `docker inspect <jackett-container>` if unsure).
+3. Start it:
 
    ```bash
-   docker compose pull
    docker compose up -d
    ```
 
-   Prebuilt images are published to `ghcr.io/aladinecek/cztorznab-proxy` for
-   `linux/amd64` and `linux/arm64` (Raspberry Pi included) on every push to
-   `main` (`:latest`) and every `vX.Y.Z` release tag. To build from source
-   instead, swap the `image:` line in `docker-compose.yml` for `build: .`
-   (both are shown, one commented out) and run `docker compose up -d --build`.
+   That's it — `docker compose pull` grabs the prebuilt image from
+   `ghcr.io/aladinecek/cztorznab-proxy` (published for `linux/amd64` and
+   `linux/arm64`, Raspberry Pi included) automatically on `up`. Nothing to
+   build.
 
-5. In Prowlarr, change the indexer's Torznab URL from Jackett directly to the
+4. In Prowlarr, change the indexer's Torznab URL from Jackett directly to the
    proxy, keeping the same path and API key:
 
    ```
@@ -107,8 +105,10 @@ a `docker compose` media stack).
    The indexer's API key is never stored by the proxy — it's forwarded
    straight through from Prowlarr to Jackett on every request.
 
-6. Run a test search in Prowlarr and confirm titles now show up in
+5. Run a test search in Prowlarr and confirm titles now show up in
    `SxxExx`/`CZ`/ASCII form.
+
+Building from source instead of pulling? See [Development](#development).
 
 ## Updating
 
@@ -138,6 +138,8 @@ parameters that pass through from Prowlarr to Jackett unchanged.
 ## Development
 
 ```bash
+git clone https://github.com/Aladinecek/cztorznab-proxy.git
+cd cztorznab-proxy
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt

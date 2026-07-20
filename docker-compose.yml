@@ -1,15 +1,14 @@
-# Example service block. Adjust `networks` so this container can reach your
-# existing Jackett instance, and point JACKETT_URL at it.
 services:
   cztorznab-proxy:
     image: ghcr.io/aladinecek/cztorznab-proxy:latest
-    # Building locally instead of pulling: comment out `image:` above and
+    # Building from source instead of pulling (requires cloning this repo
+    # first, see README > Development): comment out `image:` above and
     # uncomment the line below.
     # build: .
     container_name: cztorznab-proxy
     restart: unless-stopped
     environment:
-      JACKETT_URL: http://jackett:9117
+      JACKETT_URL: http://jackett:9117 # <-- EDIT: your Jackett's address
       LOG_LEVEL: INFO
     ports:
       - "9118:8000"
@@ -19,4 +18,4 @@ services:
 networks:
   media:
     external: true
-    name: media-stack_default
+    name: media-stack_default # <-- EDIT: the Docker network your Jackett is on
