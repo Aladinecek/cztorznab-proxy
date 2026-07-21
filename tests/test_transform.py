@@ -99,3 +99,27 @@ def test_has_unrewritten_marker_false_after_successful_rewrite():
 
 def test_has_unrewritten_marker_false_for_plain_english_title():
     assert not has_unrewritten_marker("Dexter S01E02 (2006)(EN)[1080p]")
+
+
+def test_quality_tag_before_season_gets_moved_after():
+    # Sonarr's own parser confirmed (via /api/v3/parse) that a quality tag
+    # sitting between the name and the season range gets swallowed into the
+    # series title ("Red Dwarf BDrip"), which then fails to match TVDb.
+    assert (
+        transform_title("Red Dwarf BDrip S01-S13 CZ H.265 1080p (1988)")
+        == "Red Dwarf S01-S13 BDrip CZ H.265 1080p (1988)"
+    )
+
+
+def test_quality_tag_before_season_with_complete_suffix():
+    # The quality tag ends up right before the range-serie pattern once that
+    # gets converted to "SXX-SYY COMPLETE" - COMPLETE must move along with
+    # the season range, not get left stranded before the swapped-in quality.
+    assert (
+        transform_title("Grimm BDrip 1-6. serie (2011-2016)")
+        == "Grimm S01-S06 COMPLETE BDrip (2011)"
+    )
+
+
+def test_quality_tags_already_after_season_untouched():
+    assert transform_title("Dexter S01E02 1080p H.265 (2006)") == "Dexter S01E02 1080p H.265 (2006)"

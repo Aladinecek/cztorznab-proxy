@@ -28,6 +28,18 @@ _RESIDUAL_MARKER_RE = re.compile(r"\b(serie|dil|epizoda)\b", re.IGNORECASE)
 _SEASON_RANGE_RE = re.compile(r"(?<!\w)S(\d{2})-S(\d{2})(?!\d)")
 _SEASON_SINGLE_RE = re.compile(r"(?<!\w)S(\d{2})(?!\d)")
 
+# A quality/format tag sitting directly between the name and a season marker
+# (e.g. "Red Dwarf BDrip S01-S13 ...") makes Sonarr's parser swallow it into
+# the series title ("Red Dwarf BDrip"), which then fails to match anything
+# in TVDb - confirmed live via Sonarr's own /api/v3/parse. Moving it after
+# the season marker (+ COMPLETE, if present) fixes that without touching
+# where it appears anywhere else in the title.
+_QUALITY_BEFORE_SEASON_RE = re.compile(
+    r"\b(BDrip|BRRip|WEB-?DL|WEBRip|HDTV|DVDRip|REMUX|BluRay|HDR10?|H\.?26[45]|x26[45]|\d{3,4}p)\s+"
+    r"(S\d{2}(?:-S\d{2})?(?:E\d{2})?(?:\s*COMPLETE)?)",
+    re.IGNORECASE,
+)
+
 
 def _replace_range_serie(match: "re.Match[str]") -> str:
     start, end = int(match.group(1)), int(match.group(2))
@@ -42,6 +54,11 @@ def _replace_episode(match: "re.Match[str]") -> str:
     return f"E{int(match.group(1)):02d}"
 
 
+def _swap_quality_and_season(match: "re.Match[str]") -> str:
+    quality, season = match.group(1), match.group(2)
+    return f"{season} {quality}"
+
+
 def transform_title(title: str) -> str:
     title = _RANGE_SERIE_RE.sub(_replace_range_serie, title)
     title = _SINGLE_SERIE_RE.sub(_replace_single_serie, title)
@@ -49,6 +66,7 @@ def transform_title(title: str) -> str:
     title = _YEAR_RANGE_RE.sub(r"(\1)", title)
     title = _CZ_TOKEN_RE.sub("CZ", title)
     title = unidecode(title)
+    title = _QUALITY_BEFORE_SEASON_RE.sub(_swap_quality_and_season, title, count=1)
     title = _WHITESPACE_RE.sub(" ", title).strip()
     return title
 
