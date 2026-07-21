@@ -5,7 +5,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from lxml import etree
 
-from .transform import matches_season, transform_title
+from .transform import has_unrewritten_marker, matches_season, transform_title
 
 JACKETT_URL = os.environ.get("JACKETT_URL", "http://localhost:9117").rstrip("/")
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -70,20 +70,35 @@ def _build_upstream_params(query_params, season: int | None) -> list[tuple[str, 
 def _rewrite_and_filter(body: bytes, season: int | None) -> bytes:
     parser = etree.XMLParser(recover=True, strip_cdata=False)
     root = etree.fromstring(body, parser=parser)
+    total = 0
+    dropped = 0
     for item in list(root.iter("item")):
         title_el = item.find("title")
         if title_el is None or not title_el.text:
             continue
+        total += 1
         original = title_el.text
         new = transform_title(original)
         if new != original:
             if LOG_LEVEL == "DEBUG":
                 logger.debug("title rewrite: %r -> %r", original, new)
             title_el.text = new
+        if has_unrewritten_marker(title_el.text):
+            # Rare by design (most titles either need no rewrite at all, or get
+            # fully rewritten) - safe to always log, even under heavy Sonarr/
+            # Radarr/Bazarr search traffic.
+            logger.warning("unmatched CZ pattern survived rewrite: %r", title_el.text)
         if season is not None and not matches_season(title_el.text, season):
+            dropped += 1
+            if LOG_LEVEL == "DEBUG":
+                logger.debug("season filter: dropped (season=%d) %r", season, title_el.text)
             parent = item.getparent()
             if parent is not None:
                 parent.remove(item)
+    if season is not None and total:
+        # One line per request, not per item - stays cheap even with the
+        # request volume Sonarr/Radarr/Bazarr generate.
+        logger.info("season filter (season=%d): kept %d/%d items", season, total - dropped, total)
     return etree.tostring(root, xml_declaration=True, encoding="UTF-8")
 
 

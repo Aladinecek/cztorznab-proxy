@@ -1,4 +1,4 @@
-from app.transform import matches_season, transform_title
+from app.transform import has_unrewritten_marker, matches_season, transform_title
 
 
 def test_range_serie_complete():
@@ -83,3 +83,19 @@ def test_matches_season_range_covers_season():
 def test_matches_season_complete_matches_any_season():
     assert matches_season("Grimm COMPLETE", 1)
     assert matches_season("Grimm COMPLETE", 99)
+
+
+def test_has_unrewritten_marker_true_for_missed_pattern():
+    # "serie" with no leading "N." doesn't match any rewrite rule, so it
+    # survives transform_title() untouched - a real pattern gap.
+    title = transform_title("Grimm serie 6 (2016)(CZ)[1080p]")
+    assert has_unrewritten_marker(title)
+
+
+def test_has_unrewritten_marker_false_after_successful_rewrite():
+    title = transform_title("Simpsonovi 35. serie 12. díl CZ dabing")
+    assert not has_unrewritten_marker(title)
+
+
+def test_has_unrewritten_marker_false_for_plain_english_title():
+    assert not has_unrewritten_marker("Dexter S01E02 (2006)(EN)[1080p]")

@@ -52,3 +52,46 @@ def test_no_season_means_no_filtering_only_rewrite():
         "Grimm S01-S06 COMPLETE (2011)(CZ)[1080p]",
         "Grimm S05 (2015)(CZ)[1080p]",
     ]
+
+
+def test_season_filter_logs_one_summary_line_per_request(caplog):
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="cztorznab_proxy"):
+        _rewrite_and_filter(FIXTURE, season=6)
+
+    info_records = [r for r in caplog.records if r.levelname == "INFO"]
+    assert len(info_records) == 1
+    assert "kept 2/3 items" in info_records[0].message
+
+
+def test_no_season_logs_no_summary_line(caplog):
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="cztorznab_proxy"):
+        _rewrite_and_filter(FIXTURE, season=None)
+
+    assert not [r for r in caplog.records if r.levelname == "INFO"]
+
+
+def test_unmatched_pattern_warns_without_blocking_other_items(caplog):
+    import logging
+
+    fixture = """<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:torznab="http://torznab.com/schemas/2015/feed" version="2.0">
+  <channel>
+    <item><title>Grimm serie 6 (2016)(CZ)[1080p]</title></item>
+    <item><title>Grimm 6. serie (2016)(CZ)[1080p]</title></item>
+  </channel>
+</rss>""".encode("utf-8")
+
+    with caplog.at_level(logging.WARNING, logger="cztorznab_proxy"):
+        result = _rewrite_and_filter(fixture, season=None)
+
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "unmatched CZ pattern" in warnings[0].message
+    assert _titles(result) == [
+        "Grimm serie 6 (2016)(CZ)[1080p]",
+        "Grimm S06 (2016)(CZ)[1080p]",
+    ]

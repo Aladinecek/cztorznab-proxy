@@ -15,6 +15,12 @@ _CZ_TOKEN_RE = re.compile(
 )
 _WHITESPACE_RE = re.compile(r"\s+")
 
+# Checked against the *output* of transform_title(). By then unidecode has
+# already stripped diacritics, so a surviving "serie"/"dil"/"epizoda" means
+# the phrasing didn't match any of the rules above (e.g. missing dot, no
+# leading number) - a gap in the regex pipeline, not a genuinely English title.
+_RESIDUAL_MARKER_RE = re.compile(r"\b(serie|dil|epizoda)\b", re.IGNORECASE)
+
 # Matched against a title *after* transform_title() has run, so "série" is
 # already normalized to "S06"/"S01-S08 COMPLETE" etc. The lookaround (instead
 # of \b) is needed because season and episode sit back-to-back with no
@@ -45,6 +51,10 @@ def transform_title(title: str) -> str:
     title = unidecode(title)
     title = _WHITESPACE_RE.sub(" ", title).strip()
     return title
+
+
+def has_unrewritten_marker(title: str) -> bool:
+    return bool(_RESIDUAL_MARKER_RE.search(title))
 
 
 def matches_season(title: str, season: int) -> bool:
