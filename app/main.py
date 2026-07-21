@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 
@@ -5,6 +6,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from lxml import etree
 
+from .tmdb import maybe_translate
 from .transform import has_unrewritten_marker, matches_season, transform_title
 
 JACKETT_URL = os.environ.get("JACKETT_URL", "http://localhost:9117").rstrip("/")
@@ -67,18 +69,26 @@ def _build_upstream_params(query_params, season: int | None) -> list[tuple[str, 
     return params
 
 
-def _rewrite_and_filter(body: bytes, season: int | None) -> bytes:
+async def _rewrite_and_filter(body: bytes, season: int | None) -> bytes:
     parser = etree.XMLParser(recover=True, strip_cdata=False)
     root = etree.fromstring(body, parser=parser)
+    entries = [
+        (item, title_el)
+        for item in list(root.iter("item"))
+        if (title_el := item.find("title")) is not None and title_el.text
+    ]
+
+    # Translate every item's title concurrently instead of one-by-one - a
+    # single Sonarr/Radarr search can carry dozens of items, and each
+    # cold-cache TMDB lookup is a network round trip.
+    pre_translated = await asyncio.gather(*(maybe_translate(title_el.text) for _, title_el in entries))
+
     total = 0
     dropped = 0
-    for item in list(root.iter("item")):
-        title_el = item.find("title")
-        if title_el is None or not title_el.text:
-            continue
+    for (item, title_el), translated_title in zip(entries, pre_translated):
         total += 1
         original = title_el.text
-        new = transform_title(original)
+        new = transform_title(translated_title)
         if new != original:
             if LOG_LEVEL == "DEBUG":
                 logger.debug("title rewrite: %r -> %r", original, new)
@@ -126,7 +136,7 @@ async def proxy(path: str, request: Request):
 
     if _looks_like_torznab_xml(content_type, response_body):
         try:
-            response_body = _rewrite_and_filter(response_body, season)
+            response_body = await _rewrite_and_filter(response_body, season)
         except etree.XMLSyntaxError:
             logger.warning("failed to parse XML from %s, passing through unmodified", url)
 

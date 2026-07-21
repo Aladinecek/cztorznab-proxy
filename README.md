@@ -57,6 +57,21 @@ contains the matching season (`S06`), a range that covers it (`S01-S08`), or
 without a `season` parameter (plain `t=search`, or `tvsearch` without a
 season) pass through unfiltered, as before.
 
+**3. Czech → English title translation (optional, needs `TMDB_API_KEY`)** —
+season/episode markers aren't the only thing that trips up Sonarr/Radarr:
+some Czech trackers name releases after the *translated* show/movie title
+(`Cerveny trpaslik` instead of `Red Dwarf`), which Sonarr's parser can't
+match to anything in its database no matter how well-formed the rest of the
+release is. When `TMDB_API_KEY` is set, the proxy looks up the name portion
+of the title on [TMDB](https://www.themoviedb.org/) and, if it finds a
+confident match, replaces it with the English/original title before the
+usual rewrite rules run. This only fires when the raw title actually looks
+Czech (contains diacritics) — already-English titles never touch the TMDB
+API. Any uncertain case (no result, low-confidence match, TMDB unreachable)
+leaves the title untouched; it never guesses. Resolved names are cached to
+disk (see [Configuration](#configuration)) so the same show is only looked
+up once, not once per episode/search.
+
 ### Before / after
 
 | Raw Jackett title | Rewritten by proxy |
@@ -65,6 +80,7 @@ season) pass through unfiltered, as before.
 | `Simpsonovi 35. serie 12. díl CZ dabing` | `Simpsonovi S35 E12 CZ` |
 | `Pařba ve Vegas (2009) UHDRDV cz en` | `Parba ve Vegas (2009) UHDRDV CZ en` |
 | `The Simpsons 36. série (2024)(CZ)[1080p][TvRip]` | `The Simpsons S36 (2024)(CZ)[1080p][TvRip]` |
+| `Red Dwarf - Červený trpaslík BDrip S01-S13 CZ H.265 1080p (1988)` (needs `TMDB_API_KEY`) | `Red Dwarf S01-S13 CZ H.265 1080p (1988)` |
 
 ## Installation
 
@@ -129,11 +145,13 @@ and it'll pick up new `:latest` images automatically.
 | Env var | Default | Description |
 |---|---|---|
 | `JACKETT_URL` | `http://localhost:9117` | Base URL of the upstream Jackett instance |
-| `LOG_LEVEL` | `INFO` | Set to `DEBUG` to log every title rewrite as `title rewrite: 'original' -> 'new'` |
-| `TMDB_API_KEY` | _(unused)_ | Reserved for phase 2, see below — not yet implemented |
+| `LOG_LEVEL` | `INFO` | Set to `DEBUG` to log every title rewrite/TMDB translation as `... -> ...` |
+| `TMDB_API_KEY` | _(unset = disabled)_ | v3 API key from [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) - enables Czech→English title translation |
+| `TMDB_CACHE_PATH` | `/app/cache/tmdb_titles.json` | Where resolved title translations are cached; mount a volume over its parent dir to persist across restarts (already set up in `docker-compose.yml`) |
 
-No API key is configured on the proxy itself; Torznab API keys are query
-parameters that pass through from Prowlarr to Jackett unchanged.
+No Torznab/Jackett API key is configured on the proxy itself; those are
+query parameters that pass through from Prowlarr to Jackett unchanged. TMDB
+is the only third-party key the proxy itself holds.
 
 ## Development
 
@@ -152,13 +170,6 @@ Run locally against an existing Jackett instance without Docker:
 JACKETT_URL=http://localhost:9117 LOG_LEVEL=DEBUG \
     uvicorn app.main:app --reload --port 8000
 ```
-
-## Phase 2 (interface only, not implemented)
-
-`app/tmdb.py` defines the interface for a future feature: translating Czech
-movie/show titles to English via the TMDB API (`translate_title(cz_title) ->
-str | None`). It currently raises `NotImplementedError`. `TMDB_API_KEY` is
-read from the environment but unused until this ships.
 
 ## License
 

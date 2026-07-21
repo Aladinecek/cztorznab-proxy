@@ -10,6 +10,9 @@ services:
     environment:
       JACKETT_URL: http://jackett:9117 # <-- EDIT: your Jackett's address
       LOG_LEVEL: INFO
+      TMDB_API_KEY: "" # <-- OPTIONAL: set to translate Czech titles to English (themoviedb.org/settings/api)
+    volumes:
+      - tmdb_cache:/app/cache
     ports:
       - "9118:8000"
     networks:
@@ -19,3 +22,6 @@ networks:
   media:
     external: true
     name: media-stack_default # <-- EDIT: the Docker network your Jackett is on
+
+volumes:
+  tmdb_cache:
